@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "17kHJlHmK4MRu3T/NXvNnuZ/rjHXFXowjk2EDPefSJ4=",
+  "Source": "SX400.Api",
+  "BasePath": "_content/SX400.Api",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}
