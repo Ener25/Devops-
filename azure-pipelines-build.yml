@@ -1,0 +1,93 @@
+
+trigger:
+  branches:
+    include:
+      - main #To trigger the pipeline when a push is commited
+
+pool:
+  name: Default
+
+variables:
+  - name: VITE_BACKEND_URL
+    value: https://pt-backend-dev-ed-gve4eeaff5djc7d5.eastus2-01.azurewebsites.net/api
+
+stages:
+  # ─────────────────────────────────────────────────────
+  # Stage 1: Build Backend (.NET 8)
+  # ─────────────────────────────────────────────────────
+  - stage: BuildBackend
+    displayName: 'Build Backend'
+    jobs:
+      - job: BuildDotNet
+        displayName: 'Build & Test .NET API'
+        steps:
+          - task: UseDotNet@2
+            displayName: 'Install .NET 8 SDK'
+            inputs:
+              packageType: 'sdk'
+              version: '8.x'
+
+          - script: dotnet restore
+            displayName: 'Restore NuGet packages'
+            workingDirectory: 'backend'
+
+          - script: dotnet build --configuration Release --no-restore
+            displayName: 'Build solution'
+            workingDirectory: 'backend'
+
+          - script: dotnet publish backend/SX400.Api/SX400.Api.csproj --configuration Release --output $(Build.ArtifactStagingDirectory)/backend-raw --no-build
+            displayName: 'Publish API'
+            workingDirectory: '$(System.DefaultWorkingDirectory)'
+
+          - task: ArchiveFiles@2
+            displayName: 'Zip backend publish output'
+            inputs:
+              rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/backend-raw'
+              includeRootFolder: false
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/backend/backend.zip'
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish backend artifact'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)/backend'
+              ArtifactName: 'backend-drop'
+              publishLocation: 'Container'
+
+  # ─────────────────────────────────────────────────────
+  # Stage 2: Build Frontend (React + Vite)
+  # ─────────────────────────────────────────────────────
+  - stage: BuildFrontend
+    displayName: 'Build Frontend'
+    dependsOn: []       # ← Run in parallel with backend
+    jobs:
+      - job: BuildReact
+        displayName: 'Build React App'
+        steps:
+          - task: NodeTool@0
+            displayName: 'Install Node.js 20'
+            inputs:
+              versionSpec: '20.x'
+
+          - script: npm ci
+            displayName: 'Install npm dependencies'
+            workingDirectory: 'frontend'
+
+          - script: npm run build
+            displayName: 'Build production bundle'
+            workingDirectory: 'frontend'
+
+          - task: ArchiveFiles@2
+            displayName: 'Zip frontend dist'
+            inputs:
+              rootFolderOrFile: 'frontend/dist'
+              includeRootFolder: false
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/frontend/frontend.zip'
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish frontend artifact'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)/frontend'
+              ArtifactName: 'frontend-drop'
+              publishLocation: 'Container'

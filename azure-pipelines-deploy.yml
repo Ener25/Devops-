@@ -1,0 +1,62 @@
+trigger: none
+
+resources:
+  pipelines:
+    - pipeline: buildPipeline
+      source: 'CI-CD-sx400-devops-build'
+      trigger:
+        branches:
+          include:
+            - main
+
+pool:
+  name: 'Default'
+
+variables:
+  azureSubscription: 'azure-sx400-connection'
+  backendAppName: 'pt-backend-dev-ed'
+  frontendAppName: 'pt-frontend-dev-ed'
+
+stages:
+  - stage: Deploy
+    displayName: 'Deploy to App Services'
+    jobs:
+
+      - deployment: DeployBackend
+        displayName: 'Deploy Backend API'
+        environment: 'production-backend'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: buildPipeline
+                  artifact: 'backend-drop'
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy Backend'
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    appType: 'webAppLinux'
+                    appName: $(backendAppName)
+                    package: '$(Pipeline.Workspace)/buildPipeline/backend-drop/backend.zip'
+                    runtimeStack: 'DOTNETCORE|8.0'
+
+      - deployment: DeployFrontend
+        displayName: 'Deploy Frontend'
+        environment: 'production-frontend'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: buildPipeline
+                  artifact: 'frontend-drop'
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy Frontend'
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    appType: 'webAppLinux'
+                    appName: $(frontendAppName)
+                    package: '$(Pipeline.Workspace)/buildPipeline/frontend-drop/frontend.zip'
+                    runtimeStack: 'NODE|20-lts'
+                    startUpCommand: 'pm2 serve /home/site/wwwroot --no-daemon --spa'
